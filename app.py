@@ -96,6 +96,7 @@ def forecast2():
 
 @app.route('/forecast1', methods=['GET', 'POST'])
 def forecast1():
+    print("the developer made this app is great")
     data = request.get_json()
     location = data.get('location').lower()
     product_id = str(data.get('product_id'))
