@@ -78,17 +78,15 @@ def data_genrator(days = 1,duration="week"):
     
 
 
-def calculate_site_proportions(df):
-    # Calculate the total quantity
-    total_quantity = df["quantity"].sum()
-
-    # Calculate proportions for each site
-    site_proportions = {}
-    for site in df["site"].unique():
-        site_quantity = df[df["site"] == site]["quantity"].sum()
-        site_proportions[site] = site_quantity / total_quantity if total_quantity > 0 else 0
-
-    return site_proportions
+def calculate_proportion(df, product_id):
+    grouped = df.groupby(['product_id', 'site']).agg({'quantity': 'sum'}).reset_index()
+    total_sales = df.groupby('product_id')['quantity'].sum().reset_index()
+    total_sales.rename(columns={'quantity': 'total_sales'}, inplace=True)
+    grouped = pd.merge(grouped, total_sales, on='product_id')
+    grouped['proportion'] = grouped['quantity'] / grouped['total_sales']
+    product_data = grouped[grouped['product_id'] == product_id]
+    proportion_dict = dict(zip(product_data['site'], product_data['proportion']))
+    return proportion_dict
 
         
 

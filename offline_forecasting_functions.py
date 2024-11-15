@@ -6,7 +6,7 @@ from darts.models import NBEATSModel
 from darts import TimeSeries
 from darts.dataprocessing.transformers import Scaler
 from utility import offline_split_parameters
-from utility import calculate_site_proportions
+from utility import calculate_proportion
 
 def offline_earring(material,color, price, weeks,df):
     try : 
@@ -119,11 +119,14 @@ def offline_ring(material,color,price,weeks,df):
             site_forecast = merge_forcast["mean"] * proportion
             site_forecasts[f"{site}".lower()] = round(site_forecast.sum())
 
+        print(site_forecast)
+
         return site_forecasts
 
     except Exception as e:
         print("Error occurred in  offline ring forecast:", e)
         return {}
+
 
 def offline_necklace(material,color,price,weeks,df):
     try:
@@ -226,11 +229,11 @@ def offline_bracelet(material,color,price,weeks,df):
         print("Error occurred in offline bracelet forecast:", e)
         return {}
 
-def offline_high_sale(weeks,df):
+def product_sale_offline(weeks,df,location,product_id):
     try:
         print("weeks",weeks)
-        nbeat_model_loaded = NBEATSModel.load("model/dart/nbeat_model_high_sales.darts")
-        prophet_model = joblib.load("model/prophet_model_high_sales.pkl") 
+        nbeat_model_loaded = NBEATSModel.load("model/dart/nbeat_model_offline.darts")
+        prophet_model = joblib.load("model/prophet_model_offline.pkl") 
         print("Both models have been loaded successfully.")
         df['date'] = pd.to_datetime(df['date'])
         req_len = df["product_id"].nunique()
@@ -260,119 +263,20 @@ def offline_high_sale(weeks,df):
         #merge_forcast=merge_forcast[(merge_forcast.index>=weeks[0]) & (merge_forcast.index <= weeks[-1]) ]
         merge_forcast=merge_forcast[merge_forcast.index >= weeks[0]]  
         print("mf",merge_forcast)
-        ratio = calculate_site_proportions(df.reset_index())
-        if ratio == 0:
-            return {}
         
+        ratio = calculate_proportion(df.reset_index(),product_id)
+        if ratio == 0:
+            return {} 
         site_forecasts = {}
         
         for site, proportion in ratio.items():
             site_forecast = merge_forcast["mean"] * proportion
-            site_forecasts[f"{site}".lower()] = round(site_forecast.sum()/req_len)
+            site_forecasts[f"{site}".lower()] = round(site_forecast.sum())
 
         print("site forcast",site_forecasts)
         
-        return site_forecasts
+        return site_forecasts[location]
     
     except Exception as e:
         print("Error occurred in offline high forecast:", e)
-        return {}
-
-
-def offline_medium_sale(weeks,df):
-    try:
-        nbeat_model_loaded = NBEATSModel.load("model/dart/nbeat_model_medium_sales.darts")
-        prophet_model = joblib.load("model/prophet_model_medium_sales.pkl") 
-        print("Both models have been loaded successfully.")
-        req_len = df["product_id"].nunique()
-        df['date'] = pd.to_datetime(df['date'])
-        df.set_index("date", inplace=True)
-        df1 = df.resample('W').sum().reset_index()
-        series_data = TimeSeries.from_dataframe(df1, 'date', 'quantity')
-        scaler = Scaler()
-        scaler.fit_transform(series_data)
-        y=pd.date_range(start='29-09-2024', end= weeks[-1],freq='W') 
-        Y=len(y)
-        print(Y)
-        forecast_horizon = 18 + Y 
-        forecast_nbeat = nbeat_model_loaded.predict(forecast_horizon)
-        forecast_unscaled = scaler.inverse_transform(forecast_nbeat)
-        forecast_unscaled_df = forecast_unscaled.pd_dataframe().reset_index()
-        future = prophet_model.make_future_dataframe(periods=forecast_horizon, freq='W', include_history=False)
-        forecast_prohet = prophet_model.predict(future)
-        forecast_prohet = forecast_prohet[['ds', 'yhat']]
-        forecast_prohet_df = pd.DataFrame(forecast_prohet)
-        forecast_unscaled_df = forecast_unscaled.pd_dataframe() 
-        forecast_unscaled_df.reset_index(inplace=True)
-        merge_forcast = forecast_unscaled_df.merge(forecast_prohet_df, left_on="date", right_on="ds", how="inner")
-        merge_forcast = merge_forcast[["date", "yhat", "quantity"]]
-        merge_forcast["mean"] = merge_forcast[["yhat", "quantity"]].mean(axis=1)
-        merge_forcast = merge_forcast[["date", "mean"]]
-        merge_forcast.set_index("date", inplace=True)
-        merge_forcast=merge_forcast[merge_forcast.index>=weeks[0]] 
-        print(merge_forcast)
-        ratio = calculate_site_proportions(df.reset_index())
-        if ratio == 0:
-            return {}
-        site_forecasts = {}
-        for site, proportion in ratio.items():
-            site_forecast = merge_forcast["mean"] * proportion
-            site_forecasts[f"{site}".lower()] = round(site_forecast.sum()/req_len)
-
-        
-        return site_forecasts
-    except Exception as e:
-        print("Error occurred in offline medium forecast:", e)
-        return {}
-
-def offline_low_sale(weeks,df):
-    try:
-    
-        nbeat_model_loaded = NBEATSModel.load("model/dart/nbeat_model_low_sales.darts")
-        prophet_model = joblib.load("model/prophet_model_low_sales.pkl") 
-        print("Both models have been loaded successfully.")
-        req_len = df["product_id"].nunique()
-        print(req_len)
-        df['date'] = pd.to_datetime(df['date'])
-        df.set_index("date", inplace=True)
-        df1 = df.resample('W').sum().reset_index()
-        series_data = TimeSeries.from_dataframe(df1, 'date', 'quantity')
-        scaler = Scaler()
-        scaler.fit_transform(series_data)
-        y=pd.date_range(start='29-09-2024', end= weeks[-1],freq='W') 
-        Y=len(y)
-        print(Y)
-        forecast_horizon = 18 + Y 
-        forecast_nbeat = nbeat_model_loaded.predict(forecast_horizon)
-        forecast_unscaled = scaler.inverse_transform(forecast_nbeat)
-        forecast_unscaled_df = forecast_unscaled.pd_dataframe().reset_index()
-        future = prophet_model.make_future_dataframe(periods=forecast_horizon, freq='W', include_history=False)
-        forecast_prohet = prophet_model.predict(future)
-        forecast_prohet = forecast_prohet[['ds', 'yhat']]
-        forecast_prohet_df = pd.DataFrame(forecast_prohet)
-        forecast_unscaled_df = forecast_unscaled.pd_dataframe() 
-        forecast_unscaled_df.reset_index(inplace=True)
-        merge_forcast = forecast_unscaled_df.merge(forecast_prohet_df, left_on="date", right_on="ds", how="inner")
-        merge_forcast = merge_forcast[["date", "yhat", "quantity"]]
-        merge_forcast["mean"] = merge_forcast[["yhat", "quantity"]].mean(axis=1)
-        merge_forcast = merge_forcast[["date", "mean"]]
-        merge_forcast.set_index("date", inplace=True)
-        merge_forcast=merge_forcast[merge_forcast.index>=weeks[0]] 
-        print(merge_forcast)
-        ratio = calculate_site_proportions(df.reset_index())
-        if ratio == 0:
-            return {}
-        
-        site_forecasts = {}
-        
-        for site, proportion in ratio.items():
-            site_forecast = merge_forcast["mean"] * proportion
-            site_forecasts[f"{site}".lower()] = round(site_forecast.sum()/ req_len )
-
-        print(site_forecasts)
-        
-        return site_forecasts
-    
-    except Exception as e:
-        print("Error occurred in offline low forecast:", e)
         return {}

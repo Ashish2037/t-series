@@ -3,7 +3,7 @@ from flask_cors import CORS
 import pandas as pd
 from utility import data_genrator 
 from online_forecasting_functions import ring , necklace , bracelet , earring , charm , product_sale
-from offline_forecasting_functions import offline_ring , offline_necklace , offline_bracelet ,offline_earring , charm_offline , offline_high_sale , offline_medium_sale , offline_low_sale
+from offline_forecasting_functions import offline_ring , offline_necklace , offline_bracelet ,offline_earring , charm_offline ,product_sale_offline
 
 
 app = Flask(__name__)
@@ -107,7 +107,8 @@ def forecast1():
     if location=='online':
         result = product_sale(weeks,product_id)
     else:
-        result = product_sale_offline(weeks,product_id,location)
+        df = pd.read_csv("data/offline_final.csv")
+        result = product_sale_offline(weeks,df,location,product_id)
 
     return jsonify({location:result})
 
